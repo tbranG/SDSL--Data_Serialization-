@@ -1,0 +1,12 @@
+$name Carl
+$age 59
+$wife (
+	$name Victoria
+	$age 57
+)
+$sons [
+	$name Peter
+	$age 17;
+	$name Megan
+	$age 22
+]

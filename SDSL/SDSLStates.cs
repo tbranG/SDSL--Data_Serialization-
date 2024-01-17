@@ -1,0 +1,12 @@
+﻿namespace SDSL;
+
+internal enum SDSLStates
+{
+    BUILDING_KEY,
+    BUILDING_OBJECT,
+    BUILDING_ARRAY,
+    READING_STRING,
+    READING_NUMBER,
+    SWITCHING_LINE,
+    DEFINING_DATA_TYPE
+}
