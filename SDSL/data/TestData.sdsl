@@ -5,8 +5,6 @@ $wife (
 	$age 57
 )
 $sons [
-	$name Peter
-	$age 17;
-	$name Megan
-	$age 22
+	Peter;
+	Megan
 ]

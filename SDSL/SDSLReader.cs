@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -33,6 +34,9 @@ public class SDSLReader
     {
         try
         {
+            FileInfo info = new FileInfo(filePath);
+            if (!info.Extension.Equals(".sdsl")) throw new SDSLInvalidFileExtension("ERR: invalid file type");
+
             source = File.OpenRead(filePath);
             BuildDataMap();
         }
@@ -61,6 +65,7 @@ public class SDSLReader
 
         Stack<string> parentKey = new();
         Stack<Dictionary<string, dynamic>> maps = new();
+        Stack<List<dynamic>> lists = new();
 
         maps.Push(data);
         do
@@ -77,6 +82,18 @@ public class SDSLReader
                     {
                         //if _c == $ we are reading a key
                         parserState = SDSLStates.BUILDING_KEY;
+
+                        //if lists is not empty, we are building an array
+                        //so create an dictionary and add to the end of list
+                        if(lists.Count > 0)
+                        {
+                            if(lists.Peek().LastOrDefault() == -1)
+                            {
+                                lists.Peek().Add(new Dictionary<string, dynamic>());
+                                maps.Push(lists.Peek().LastOrDefault());
+                            }
+                        }
+
                         break;
                     }
                 case SDSLSymbols.LETTER:
@@ -86,18 +103,19 @@ public class SDSLReader
 
                         if (parserState == SDSLStates.BUILDING_KEY)
                             _key += _c;
-                        else if(parserState == SDSLStates.DEFINING_DATA_TYPE)
-                        {     
-                            maps.Peek().Add(_key, "");
-                            _tempVal = "" + _c;
 
+                        else if(
+                            parserState == SDSLStates.DEFINING_DATA_TYPE || 
+                            parserState == SDSLStates.SWITCHING_LINE || 
+                            parserState == SDSLStates.READING_STRING
+                        )
+                        {     
                             parserState = SDSLStates.READING_STRING;
-                        }
-                        else if(parserState == SDSLStates.READING_STRING)
-                        {
+
+                            _tempVal ??= "";
                             _tempVal += _c;
-                            maps.Peek()[_key] = _tempVal;
                         }
+
                         break;
                     }
                 case SDSLSymbols.NUMBER:
@@ -105,17 +123,15 @@ public class SDSLReader
                         if (parserState == SDSLStates.BUILDING_KEY) throw new SDSLInvalidKeyName("ERR: Attribute name cannot contains numbers");
 
                         // TODO: redo this logic, add support to float numbers and Date types
-                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE || 
+                            parserState == SDSLStates.SWITCHING_LINE ||
+                            parserState == SDSLStates.READING_NUMBER
+                        )
                         {
-                            maps.Peek().Add(_key, 0);
-                            _tempVal += _c;
-
                             parserState = SDSLStates.READING_NUMBER;
-                        }
-                        else if (parserState == SDSLStates.READING_NUMBER)
-                        {
+
+                            _tempVal ??= "";
                             _tempVal += _c;
-                            maps.Peek()[_key] = int.Parse(_tempVal);
                         }
 
                         break;
@@ -127,6 +143,34 @@ public class SDSLReader
                     }
                 case SDSLSymbols.END_LINE:
                     {
+                        if(lists.Count > 0)
+                        {
+                            if (_key.Equals(""))
+                            {
+                                // in this case, the element of the array is an simple value like an integer. Otherwise
+                                // it's an object or array
+
+                                //TODO: fix this shit
+                                if (
+                                    lists.Peek().LastOrDefault() is not null &&
+                                    lists.Peek().LastOrDefault() is not string &&
+                                    lists.Peek().LastOrDefault() == -1
+                                ) 
+                                {
+                                    lists.Peek().RemoveAt(lists.Peek().Count - 1);
+                                }
+
+                                    lists.Peek().Add(_tempVal);
+                            }
+                            else
+                            {
+                                //TODO: nested objects and arrays
+                            }
+                        }
+                        else
+                            maps.Peek().Add(_key, _tempVal);
+                        
+
                         //reseting key and values
                         parserState = SDSLStates.SWITCHING_LINE;
                         _key = "";
@@ -155,6 +199,40 @@ public class SDSLReader
                             parserState = SDSLStates.SWITCHING_LINE;
                         }
                         
+                        break;
+                    }
+                case SDSLSymbols.BRACKETS:
+                    {
+                        // In this case we are building an array. We add an ArrayList to the key in the top of the stack, and keep pushing new elements in the list
+                        // the elements can be of multiple types
+
+                        if (parserState == SDSLStates.BUILDING_KEY) throw new SDSLInvalidKeyName("ERR: Attribute name can only have letters and underlines");
+
+                        if (parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        {
+                            maps.Peek().Add(_key, new List<dynamic>());
+
+                            lists.Push(maps.Peek()[_key]);
+                            parentKey?.Push(_key);
+
+                            parserState = SDSLStates.BUILDING_OBJECT;
+                        }
+                        else if (parserState == SDSLStates.BUILDING_OBJECT || parserState == SDSLStates.SWITCHING_LINE)
+                        {
+                            lists.Pop();
+                            parentKey?.Pop();
+                            parserState = SDSLStates.SWITCHING_LINE;
+                        }
+
+                        break;
+                    }
+                case SDSLSymbols.SEMICOLON:
+                    {
+                        if (lists.Count > 0)
+                        {
+                            lists.Peek().Add(-1);
+                        }
+                        else throw new Exception("ERR: Unexpected error. There's no list to push element into");
                         break;
                     }
                 default: break;
