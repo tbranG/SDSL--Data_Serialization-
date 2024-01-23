@@ -67,6 +67,10 @@ public class SDSLReader
         Stack<Dictionary<string, dynamic>> maps = new();
         Stack<List<dynamic>> lists = new();
 
+        // --final value type--
+        // after reading a key value pair, use this to define to wich type the value will be cast
+        SDSLDataTypes? valueType = null; 
+
         maps.Push(data);
         do
         {
@@ -104,15 +108,22 @@ public class SDSLReader
                         if (parserState == SDSLStates.BUILDING_KEY)
                             _key += _c;
 
+
+                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        {
+                            valueType = SDSLDataTypes.STRING;
+                            parserState = SDSLStates.READING_STRING;
+
+                            _tempVal ??= "";
+                            _tempVal += _c;
+                        }
+
+
                         else if(
-                            parserState == SDSLStates.DEFINING_DATA_TYPE || 
                             parserState == SDSLStates.SWITCHING_LINE || 
                             parserState == SDSLStates.READING_STRING
                         )
                         {     
-                            parserState = SDSLStates.READING_STRING;
-
-                            _tempVal ??= "";
                             _tempVal += _c;
                         }
 
@@ -122,15 +133,22 @@ public class SDSLReader
                     {
                         if (parserState == SDSLStates.BUILDING_KEY) throw new SDSLInvalidKeyName("ERR: Attribute name cannot contains numbers");
 
-                        // TODO: redo this logic, add support to float numbers and Date types
-                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE || 
+
+                        else if(parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        {
+                            valueType = SDSLDataTypes.INTEGER;
+                            parserState = SDSLStates.READING_NUMBER;
+
+                            _tempVal ??= "";
+                            _tempVal += _c;
+                        }   
+
+
+                        else if ( 
                             parserState == SDSLStates.SWITCHING_LINE ||
                             parserState == SDSLStates.READING_NUMBER
                         )
                         {
-                            parserState = SDSLStates.READING_NUMBER;
-
-                            _tempVal ??= "";
                             _tempVal += _c;
                         }
 
@@ -168,11 +186,24 @@ public class SDSLReader
                             }
                         }
                         else
-                            maps.Peek().Add(_key, _tempVal);
+                        {
+                            //_tempVal casting
+                            dynamic? castValue = valueType switch
+                            {
+                                SDSLDataTypes.INTEGER => int.Parse(_tempVal),
+                                SDSLDataTypes.FLOAT => float.Parse(_tempVal, System.Globalization.NumberFormatInfo.InvariantInfo),
+                                SDSLDataTypes.STRING => _tempVal,
+                                _ => null
+                            }; 
+
+                            maps.Peek().Add(_key, castValue);
+                        }
                         
 
                         //reseting key and values
                         parserState = SDSLStates.SWITCHING_LINE;
+                        valueType = null;
+
                         _key = "";
                         _tempVal = "";
 
@@ -230,9 +261,20 @@ public class SDSLReader
                     {
                         if (lists.Count > 0)
                         {
+                            //we add an element to the end of list as a marker
                             lists.Peek().Add(-1);
                         }
                         else throw new Exception("ERR: Unexpected error. There's no list to push element into");
+                        break;
+                    }
+                case SDSLSymbols.DOT:
+                    {
+                        if (parserState == SDSLStates.READING_NUMBER)
+                        {
+                            valueType = SDSLDataTypes.FLOAT;
+                            _tempVal += _c;
+                        }
+
                         break;
                     }
                 default: break;
@@ -249,6 +291,7 @@ public class SDSLReader
         '\n' => SDSLSymbols.END_LINE,
         ';' => SDSLSymbols.SEMICOLON,
         ' ' => SDSLSymbols.SPACE,
+        '.' => SDSLSymbols.DOT,
         _ => IntervalChecker(symbol)
     };
 

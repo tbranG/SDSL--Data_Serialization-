@@ -10,5 +10,6 @@ internal enum SDSLSymbols
     LETTER,
     NUMBER,
     SPACE,
+    DOT,
     TRASH,
 }
