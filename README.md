@@ -33,12 +33,12 @@ $axis [
   Right
 ]
 ```
-Simple arrays can be written in a single line like `$volunteers [ Peter; Nora; Megan ]` <br><br>
-Array holding objects doesn't need parentheses. Insert an semicolon to separete the objects
+Simple arrays can be written in a single line like `$volunteers [ Peter, Nora, Megan ]` <br><br>
+Array holding objects doesn't need parentheses. Insert an comma to separete the objects
 ```
 $chocolateBox [
   $chocolateName Mundy
-  $chocolateType white;
+  $chocolateType white,
   $chocolateName Eclipse
   $chocolateType dark
 ]
@@ -46,7 +46,7 @@ $chocolateBox [
 
 ## Current Limitations (or currently not supported)
 List of future features:
-- Negative numbers and float values
+- ~~Negative numbers and float values~~
 - Date types
 - Arrays of objects
 - Nested Arrays
