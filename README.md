@@ -24,12 +24,12 @@ $background (
 ```
 
 #### Arrays
-An attribute composed of multiple values is called an array. To declare an array you need to open brackets `[]`, and after every element (the last one doesn't need it), insert an semicolon `;` 
+An attribute composed of multiple values is called an array. To declare an array you need to open brackets `[]`, and after every element (the last one doesn't need it), insert an comma `,` 
 ```
 $axis [
-  Up;
-  Down;
-  Left;
+  Up,
+  Down,
+  Left,
   Right
 ]
 ```
