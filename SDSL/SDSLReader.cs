@@ -109,7 +109,10 @@ public class SDSLReader
                             _key += _c;
 
 
-                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        else if (parserState == SDSLStates.DEFINING_DATA_TYPE || 
+                            parserState == SDSLStates.BUILDING_ARRAY ||
+                            parserState == SDSLStates.SWITCHING_LINE
+                        )
                         {
                             valueType = SDSLDataTypes.STRING;
                             parserState = SDSLStates.READING_STRING;
@@ -119,13 +122,9 @@ public class SDSLReader
                         }
 
 
-                        else if(
-                            parserState == SDSLStates.SWITCHING_LINE || 
-                            parserState == SDSLStates.READING_STRING
-                        )
-                        {     
+                        else if(parserState == SDSLStates.READING_STRING)
                             _tempVal += _c;
-                        }
+                        
 
                         break;
                     }
@@ -134,7 +133,11 @@ public class SDSLReader
                         if (parserState == SDSLStates.BUILDING_KEY) throw new SDSLInvalidKeyName("ERR: Attribute name cannot contains numbers");
 
 
-                        else if(parserState == SDSLStates.DEFINING_DATA_TYPE)
+                        else if(
+                            parserState == SDSLStates.DEFINING_DATA_TYPE || 
+                            parserState == SDSLStates.BUILDING_ARRAY ||
+                            parserState == SDSLStates.SWITCHING_LINE
+                        )
                         {
                             valueType = SDSLDataTypes.INTEGER;
                             parserState = SDSLStates.READING_NUMBER;
@@ -143,62 +146,58 @@ public class SDSLReader
                             _tempVal += _c;
                         }   
 
-
-                        else if ( 
-                            parserState == SDSLStates.SWITCHING_LINE ||
-                            parserState == SDSLStates.READING_NUMBER
-                        )
-                        {
+                        else if (parserState == SDSLStates.READING_NUMBER)
                             _tempVal += _c;
-                        }
+                        
 
                         break;
                     }
                 case SDSLSymbols.SPACE:
                     {
-                        if (parserState == SDSLStates.BUILDING_KEY) parserState = SDSLStates.DEFINING_DATA_TYPE;
-                        break;
-                    }
-                case SDSLSymbols.END_LINE:
-                    {
-                        if(lists.Count > 0)
+                        if (parserState == SDSLStates.BUILDING_KEY)
+                            parentKey?.Push(_key);
+                        
+                        if (parserState == SDSLStates.BUILDING_KEY || parserState == SDSLStates.BUILDING_ARRAY) parserState = SDSLStates.DEFINING_DATA_TYPE;
+                        
+                        // this if represents array written in a single line. 
+                        // in this case, we should already add _tempVal to the list
+                        if (parserState == SDSLStates.BUILDING_ARRAY)
                         {
-                            if (_key.Equals(""))
-                            {
-                                // in this case, the element of the array is an simple value like an integer. Otherwise
-                                // it's an object or array
-
-                                //TODO: fix this shit
-                                if (
-                                    lists.Peek().LastOrDefault() is not null &&
-                                    lists.Peek().LastOrDefault() is not string &&
-                                    lists.Peek().LastOrDefault() == -1
-                                ) 
-                                {
-                                    lists.Peek().RemoveAt(lists.Peek().Count - 1);
-                                }
-
-                                    lists.Peek().Add(_tempVal);
-                            }
-                            else
-                            {
-                                //TODO: nested objects and arrays
-                            }
-                        }
-                        else
-                        {
-                            //_tempVal casting
+                            //add to list
                             dynamic? castValue = valueType switch
                             {
                                 SDSLDataTypes.INTEGER => int.Parse(_tempVal),
                                 SDSLDataTypes.FLOAT => float.Parse(_tempVal, System.Globalization.NumberFormatInfo.InvariantInfo),
                                 SDSLDataTypes.STRING => _tempVal,
                                 _ => null
-                            }; 
+                            };
 
-                            maps.Peek().Add(_key, castValue);
+                            lists.Peek().Add(castValue);
+                            _tempVal = "";
                         }
+                        break;
+                    }
+                case SDSLSymbols.END_LINE:
+                    {
+                        //there's no value to add to table
+                        if (_tempVal is string && _tempVal.Equals("")) break;
+
                         
+                        //_tempVal casting
+                        dynamic? castValue = valueType switch
+                        {
+                            SDSLDataTypes.INTEGER => int.Parse(_tempVal),
+                            SDSLDataTypes.FLOAT => float.Parse(_tempVal, System.Globalization.NumberFormatInfo.InvariantInfo),
+                            SDSLDataTypes.STRING => _tempVal,
+                            _ => null
+                        };
+
+
+                        //array building exclusive case. If there's no key, we are building an array
+                        if (_key.Equals(""))
+                            lists.Peek().Add(castValue);
+                        else 
+                            maps.Peek().Add(_key, castValue);
 
                         //reseting key and values
                         parserState = SDSLStates.SWITCHING_LINE;
@@ -229,13 +228,32 @@ public class SDSLReader
                             parentKey?.Pop();
                             parserState = SDSLStates.SWITCHING_LINE;
                         }
-                        
+
+                        _key = "";
+
                         break;
                     }
                 case SDSLSymbols.BRACKETS:
                     {
                         // In this case we are building an array. We add an ArrayList to the key in the top of the stack, and keep pushing new elements in the list
                         // the elements can be of multiple types
+
+
+                        //one line array treatment
+                        if (_tempVal is not null && !(_tempVal.Equals("")))
+                        {
+                            dynamic? castValue = valueType switch
+                            {
+                                SDSLDataTypes.INTEGER => int.Parse(_tempVal),
+                                SDSLDataTypes.FLOAT => float.Parse(_tempVal, System.Globalization.NumberFormatInfo.InvariantInfo),
+                                SDSLDataTypes.STRING => _tempVal,
+                                _ => null
+                            };
+
+                            lists.Peek().Add(castValue);
+                            _tempVal = "";
+                        }
+
 
                         if (parserState == SDSLStates.BUILDING_KEY) throw new SDSLInvalidKeyName("ERR: Attribute name can only have letters and underlines");
 
@@ -246,14 +264,16 @@ public class SDSLReader
                             lists.Push(maps.Peek()[_key]);
                             parentKey?.Push(_key);
 
-                            parserState = SDSLStates.BUILDING_OBJECT;
+                            parserState = SDSLStates.BUILDING_ARRAY;
                         }
-                        else if (parserState == SDSLStates.BUILDING_OBJECT || parserState == SDSLStates.SWITCHING_LINE)
+                        else if (parserState == SDSLStates.BUILDING_ARRAY || parserState == SDSLStates.SWITCHING_LINE)
                         {
                             lists.Pop();
                             parentKey?.Pop();
                             parserState = SDSLStates.SWITCHING_LINE;
                         }
+ 
+                        _key = "";
 
                         break;
                     }
@@ -261,8 +281,20 @@ public class SDSLReader
                     {
                         if (lists.Count > 0)
                         {
-                            //we add an element to the end of list as a marker
-                            lists.Peek().Add(-1);
+                            //_tempVal casting
+                            dynamic? castValue = valueType switch
+                            {
+                                SDSLDataTypes.INTEGER => int.Parse(_tempVal),
+                                SDSLDataTypes.FLOAT => float.Parse(_tempVal, System.Globalization.NumberFormatInfo.InvariantInfo),
+                                SDSLDataTypes.STRING => _tempVal,
+                                _ => null
+                            };
+
+                            lists.Peek().Add(castValue);
+
+                            //reseting state and value
+                            parserState = SDSLStates.BUILDING_ARRAY;
+                            _tempVal = "";
                         }
                         else throw new Exception("ERR: Unexpected error. There's no list to push element into");
                         break;
@@ -279,6 +311,11 @@ public class SDSLReader
                     }
                 default: break;
             }
+
+#if DEBUG
+            Console.WriteLine($"Caractere: {_c}\n estado do parser: {parserState}\nkey: {_key}\n valor: {_tempVal}\n");
+#endif
+
         } while (source.Position <= source.Length);
     }
 
@@ -289,7 +326,7 @@ public class SDSLReader
         '[' or ']' => SDSLSymbols.BRACKETS,
         '(' or ')' => SDSLSymbols.PARENTHESES,
         '\n' => SDSLSymbols.END_LINE,
-        ';' => SDSLSymbols.SEMICOLON,
+        ',' => SDSLSymbols.SEMICOLON,
         ' ' => SDSLSymbols.SPACE,
         '.' => SDSLSymbols.DOT,
         _ => IntervalChecker(symbol)

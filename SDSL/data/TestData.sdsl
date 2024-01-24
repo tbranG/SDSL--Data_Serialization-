@@ -5,7 +5,4 @@ $wife (
 	$name Victoria
 	$age 57
 )
-$sons [
-	Peter;
-	Megan
-]
+$sons [ Peter, Megan ]
