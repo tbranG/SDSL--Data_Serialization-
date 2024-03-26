@@ -312,10 +312,6 @@ public class SDSLReader
                 default: break;
             }
 
-#if DEBUG
-            Console.WriteLine($"Caractere: {_c}\n estado do parser: {parserState}\nkey: {_key}\n valor: {_tempVal}\n");
-#endif
-
         } while (source.Position <= source.Length);
     }
 
@@ -334,7 +330,7 @@ public class SDSLReader
 
     private static SDSLSymbols IntervalChecker(char symbol)
     {
-        int asciiCode = (int)symbol;
+        int asciiCode = symbol;
         if(asciiCode >= 48 && asciiCode <= 57)
         {
             return SDSLSymbols.NUMBER;
