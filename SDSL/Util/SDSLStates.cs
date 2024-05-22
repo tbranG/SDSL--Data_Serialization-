@@ -1,4 +1,4 @@
-﻿namespace SDSL;
+﻿namespace SDSL.Util;
 
 internal enum SDSLStates
 {

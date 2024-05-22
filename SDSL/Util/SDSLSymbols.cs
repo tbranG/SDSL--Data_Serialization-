@@ -1,4 +1,4 @@
-﻿namespace SDSL;
+﻿namespace SDSL.Util;
 
 internal enum SDSLSymbols
 {
@@ -6,7 +6,7 @@ internal enum SDSLSymbols
     PARENTHESES,
     BRACKETS,
     END_LINE,
-    SEMICOLON, 
+    SEMICOLON,
     LETTER,
     NUMBER,
     SPACE,

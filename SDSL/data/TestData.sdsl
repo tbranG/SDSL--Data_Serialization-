@@ -1,8 +1,0 @@
-$name Carl
-$age 59
-$height 5.9
-$wife (
-	$name Victoria
-	$age 57
-)
-$sons [ Peter, Megan ]
