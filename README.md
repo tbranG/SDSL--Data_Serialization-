@@ -1,9 +1,9 @@
-# SDSL (Data Serialization)
-Custom language for data serialization
+# SDSL parser
+Parser for my custom data serialization language
 
 SDSL stands for *Simple Data Serialization Language*, the objective it's to be simpler than JSON, and more organized than YAML
 
-## Sintax
+## SDSL Sintax
 Attributes are defined by using the dollar mark character `$`
 ```
 $value 12
@@ -47,6 +47,5 @@ $chocolateBox [
 ## Current Limitations (or currently not supported)
 List of future features:
 - ~~Negative numbers and float values~~
-- Date types
 - Arrays of objects
 - Nested Arrays
